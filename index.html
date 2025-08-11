@@ -142,7 +142,7 @@
     <canvas id="stars-canvas"></canvas>
 
     <!-- Security Indicator -->
-    <div class="security-indicator">
+    <div class="security-indicator" style="display: none;">
         🔒 Secure Session
     </div>
 
@@ -151,37 +151,25 @@
         <div id="login-view">
             <div class="glass-card p-8 rounded-2xl shadow-2xl">
                 <h1 class="text-3xl font-bold text-center text-white mb-2">Tashweesh's Competitor Analyzer</h1>
-                <p class="text-center text-gray-400 mb-8">Secure Access Portal</p>
+                <p class="text-center text-gray-400 mb-8">Secure Access</p>
                 <form id="login-form">
                     <div class="mb-4">
-                        <label for="password" class="block text-sm font-medium text-gray-300 mb-2">Access Key</label>
-                        <input type="password" id="password" name="password" required class="w-full px-4 py-3 rounded-lg galaxy-input" placeholder="Enter your secure access key" autocomplete="current-password">
+                        <label for="password" class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                        <input type="password" id="password" name="password" required class="w-full px-4 py-3 rounded-lg galaxy-input" placeholder="Enter access key">
                     </div>
                     <p id="login-error" class="text-red-400 text-sm text-center mb-4 h-5"></p>
-                    <button type="submit" id="auth-button" class="w-full text-white font-bold py-3 px-4 rounded-lg galaxy-button">
-                        <span id="auth-button-text">Authenticate</span>
+                    <button type="submit" class="w-full text-white font-bold py-3 px-4 rounded-lg galaxy-button">
+                        Authenticate
                     </button>
                 </form>
-                <div class="mt-6 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <p class="text-amber-300 text-xs text-center">
-                        🔐 Authentication is handled server-side with encrypted tokens
-                    </p>
-                </div>
             </div>
         </div>
 
         <!-- Main App View -->
         <div id="form-view" class="hidden">
             <div class="glass-card p-8 rounded-2xl shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 class="text-3xl font-bold text-white mb-2">Tashweesh's Competitor Analyzer</h1>
-                        <p class="text-gray-400">Launch your n8n automation workflow.</p>
-                    </div>
-                    <button id="logout-button" class="text-gray-400 hover:text-red-400 transition-colors text-sm">
-                        🔓 Logout
-                    </button>
-                </div>
+                <h1 class="text-3xl font-bold text-center text-white mb-2">Tashweesh's Competitor Analyzer</h1>
+                <p class="text-center text-gray-400 mb-8">Launch your n8n automation workflow.</p>
 
                 <form id="analyzeForm">
                     <div class="space-y-6">
@@ -293,9 +281,6 @@
         const loginForm = document.getElementById('login-form');
         const passwordInput = document.getElementById('password');
         const loginError = document.getElementById('login-error');
-        const authButton = document.getElementById('auth-button');
-        const authButtonText = document.getElementById('auth-button-text');
-        const logoutButton = document.getElementById('logout-button');
 
         const analyzeForm = document.getElementById('analyzeForm');
         const submitButton = document.getElementById('submit-button');
@@ -314,44 +299,26 @@
         const keywordInput = document.getElementById('keyword');
         const profileInput = document.getElementById('profile');
 
-        // --- SECURITY UTILITY FUNCTIONS ---
-        const setCookie = (name, value, hours = 24) => {
-            const date = new Date();
-            date.setTime(date.getTime() + (hours * 60 * 60 * 1000));
-            const expires = "; expires=" + date.toUTCString();
-            document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/; SameSite=Strict; Secure";
+        // --- UTILITY FUNCTIONS ---
+        const setCookie = (name, value, days) => {
+            let expires = "";
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days*24*60*60*1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "")  + expires + "; path=/; SameSite=Lax; Secure";
         };
 
         const getCookie = (name) => {
             const nameEQ = name + "=";
             const ca = document.cookie.split(';');
-            for(let i = 0; i < ca.length; i++) {
+            for(let i=0;i < ca.length;i++) {
                 let c = ca[i];
-                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+                while (c.charAt(0)==' ') c = c.substring(1,c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
             }
             return null;
-        };
-
-        const deleteCookie = (name) => {
-            document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict; Secure";
-        };
-
-        const generateFingerprint = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillText('Security fingerprint', 2, 2);
-            return canvas.toDataURL().slice(-50);
-        };
-
-        const isLocked = () => {
-            return Date.now() < lockoutUntil;
-        };
-
-        const getRemainingLockoutTime = () => {
-            return Math.ceil((lockoutUntil - Date.now()) / 1000 / 60);
         };
 
         // --- SEARCH TYPE TOGGLE FUNCTION ---
@@ -375,98 +342,11 @@
             }
         };
 
-        // --- SECURE AUTHENTICATION FUNCTION ---
-        const authenticateUser = async (password) => {
-            if (isLocked()) {
-                throw new Error(`Account locked. Try again in ${getRemainingLockoutTime()} minutes.`);
-            }
-
-            const authPayload = {
-                password: password,
-                fingerprint: generateFingerprint(),
-                timestamp: Date.now(),
-                userAgent: navigator.userAgent.slice(0, 100) // Truncate for security
-            };
-
-            const response = await fetch(AUTH_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify(authPayload)
-            });
-
-            if (!response.ok) {
-                loginAttempts++;
-                localStorage.setItem('login_attempts', loginAttempts.toString());
-                
-                if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-                    lockoutUntil = Date.now() + LOCKOUT_DURATION;
-                    localStorage.setItem('lockout_until', lockoutUntil.toString());
-                    throw new Error(`Too many failed attempts. Account locked for 15 minutes.`);
-                }
-                
-                throw new Error(`Authentication failed. ${MAX_LOGIN_ATTEMPTS - loginAttempts} attempts remaining.`);
-            }
-
-            const authResult = await response.json();
-            
-            if (authResult.success && authResult.sessionToken) {
-                // Clear failed attempts on successful login
-                loginAttempts = 0;
-                lockoutUntil = 0;
-                localStorage.removeItem('login_attempts');
-                localStorage.removeItem('lockout_until');
-                
-                // Store secure session token
-                setCookie(COOKIE_NAME, authResult.sessionToken, 24);
-                return authResult.sessionToken;
-            }
-            
-            throw new Error('Invalid authentication response');
-        };
-
-        // --- SECURE SESSION VALIDATION ---
-        const validateSession = async () => {
-            const sessionToken = getCookie(COOKIE_NAME);
-            if (!sessionToken) return false;
-
-            try {
-                const response = await fetch(AUTH_ENDPOINT + '/validate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionToken}`
-                    },
-                    body: JSON.stringify({
-                        fingerprint: generateFingerprint()
-                    })
-                });
-
-                return response.ok;
-            } catch (error) {
-                console.error('Session validation failed:', error);
-                return false;
-            }
-        };
-
         // --- INITIALIZATION ---
-        const initializeApp = async () => {
-            // Check for lockout status
-            if (isLocked()) {
-                loginError.textContent = `Account locked. Try again in ${getRemainingLockoutTime()} minutes.`;
-                authButton.disabled = true;
-                return;
-            }
-
-            // Validate existing session
-            const hasValidSession = await validateSession();
-            if (hasValidSession) {
-                loginView.classList.add('hidden');
-                formView.classList.remove('hidden');
-            }
-        };
+        if (getCookie(COOKIE_NAME)) {
+            loginView.classList.add('hidden');
+            formView.classList.remove('hidden');
+        }
 
         // --- EVENT LISTENERS ---
         
@@ -475,68 +355,25 @@
             radio.addEventListener('change', toggleSearchType);
         });
 
-        // Secure login form handler
-        loginForm.addEventListener('submit', async (e) => {
+        // Simple login form handler
+        loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            
-            if (isLocked()) {
-                loginError.textContent = `Account locked. Try again in ${getRemainingLockoutTime()} minutes.`;
-                return;
-            }
-
             loginError.textContent = '';
-            authButton.disabled = true;
-            authButtonText.textContent = 'Authenticating...';
-
-            try {
-                await authenticateUser(passwordInput.value);
+            // Check password by encoding user input and comparing to stored base64
+            if (btoa(passwordInput.value) === PASSWORD_B64) {
+                setCookie(COOKIE_NAME, 'true', 1); // Set cookie for 1 day
                 loginView.classList.add('hidden');
                 formView.classList.remove('hidden');
                 formView.classList.add('fade-in');
-                passwordInput.value = ''; // Clear password immediately
-            } catch (error) {
-                loginError.textContent = error.message;
-                passwordInput.value = ''; // Clear password on error
-                
-                if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-                    authButton.disabled = true;
-                }
-            } finally {
-                authButton.disabled = false;
-                authButtonText.textContent = 'Authenticate';
+            } else {
+                loginError.textContent = 'Access key is incorrect.';
+                passwordInput.value = '';
             }
         });
 
-        // Logout functionality
-        logoutButton.addEventListener('click', () => {
-            deleteCookie(COOKIE_NAME);
-            formView.classList.add('hidden');
-            loginView.classList.remove('hidden');
-            loginView.classList.add('fade-in');
-            
-            // Reset form
-            analyzeForm.reset();
-            videoCountDisplay.textContent = '10';
-            document.querySelector('input[name="searchType"][value="keyword"]').checked = true;
-            toggleSearchType();
-        });
-
-        // Secure workflow submission
+        // Simple workflow submission
         analyzeForm.addEventListener("submit", async function (e) {
             e.preventDefault();
-            
-            // Validate session before submission
-            const hasValidSession = await validateSession();
-            if (!hasValidSession) {
-                showResponse(false, "Session expired. Please log in again.");
-                setTimeout(() => {
-                    deleteCookie(COOKIE_NAME);
-                    formView.classList.add('hidden');
-                    loginView.classList.remove('hidden');
-                }, 2000);
-                return;
-            }
-
             submitButton.disabled = true;
             buttonText.textContent = 'Launching...';
 
@@ -553,40 +390,28 @@
                 return;
             }
 
-            const sessionToken = getCookie(COOKIE_NAME);
             const formData = new FormData();
-            
-            // Add session token for server-side validation
-            formData.append('sessionToken', sessionToken);
             formData.append('keyword', keyword);
             formData.append('profile', profile);
             formData.append('count', count);
             formData.append('sheetUrl', sheetUrl);
             formData.append('sheetId', sheetId);
             formData.append('dialect', dialect);
-            formData.append('fingerprint', generateFingerprint());
 
             try {
                 const response = await fetch(CREATE_TASK_URL, {
                     method: "POST",
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Authorization': `Bearer ${sessionToken}`
-                    },
                     body: formData 
                 });
 
                 if (!response.ok) {
-                    if (response.status === 401) {
-                        throw new Error("Session expired. Please log in again.");
-                    }
-                    throw new Error(`Workflow responded with an error: ${response.status} ${response.statusText}`);
+                    throw new Error(`n8n workflow responded with an error: ${response.status} ${response.statusText}`);
                 }
                 
                 showResponse(true);
 
             } catch (error) {
-                console.error("Workflow Error:", error);
+                console.error("Initiation Error:", error);
                 showResponse(false, error.message);
             }
         });
@@ -733,9 +558,6 @@
 
         initStars();
         animate();
-
-        // Initialize the application
-        initializeApp();
     </script>
 </body>
 </html>
