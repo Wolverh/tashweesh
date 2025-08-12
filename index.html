@@ -41,9 +41,9 @@
             border: 1px solid #30363d;
             color: #c9d1d9;
             transition: all 0.2s ease-in-out;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
+            -webkit-appearance: none; /* Removes default Safari styling */
+            -moz-appearance: none; /* Removes default Firefox styling */
+            appearance: none; /* Removes default browser styling */
         }
         .galaxy-input::placeholder {
             color: #8b949e;
@@ -120,31 +120,12 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* --- Security Indicator --- */
-        .security-indicator {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            padding: 0.5rem 1rem;
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            border-radius: 0.5rem;
-            color: #22c55e;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
     </style>
 </head>
 
 <body class="flex items-center justify-center min-h-screen p-4">
 
     <canvas id="stars-canvas"></canvas>
-
-    <!-- Security Indicator -->
-    <div class="security-indicator" style="display: none;">
-        🔒 Secure Session
-    </div>
 
     <div class="w-full max-w-lg">
         <!-- Login View -->
@@ -258,17 +239,10 @@
     </div>
 
     <script>
-        // --- SECURE CONFIGURATION ---
-        const AUTH_ENDPOINT = 'https://n8n.srv898897.hstgr.cloud/webhook/secure-auth'; // New authentication endpoint
+        // --- CONFIGURATION ---
         const CREATE_TASK_URL = 'https://n8n.srv898897.hstgr.cloud/webhook/4a6a6eb0-3366-4503-abcc-eee9c1707069';
-        const COOKIE_NAME = 'tashweesh_secure_session';
-        
-        // Security configuration
-        const MAX_LOGIN_ATTEMPTS = 3;
-        const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
-        
-        let loginAttempts = parseInt(localStorage.getItem('login_attempts') || '0');
-        let lockoutUntil = parseInt(localStorage.getItem('lockout_until') || '0');
+        const PASSWORD_B64 = 'VGFzaHdlZXNoMjAyNCE='; // "Tashweesh2024!" in Base64
+        const COOKIE_NAME = 'tashweesh_analyzer_auth_session';
 
         // --- DOM ELEMENTS ---
         const loginView = document.getElementById('login-view');
@@ -331,14 +305,14 @@
                 profileField.classList.add('hidden');
                 keywordInput.required = true;
                 profileInput.required = false;
-                profileInput.value = '';
+                profileInput.value = ''; // Clear profile when switching to keyword
             } else {
                 profileField.classList.remove('hidden');
                 profileField.classList.add('fade-in');
                 keywordField.classList.add('hidden');
                 profileInput.required = true;
                 keywordInput.required = false;
-                keywordInput.value = '';
+                keywordInput.value = ''; // Clear keyword when switching to profile
             }
         };
 
@@ -391,6 +365,7 @@
             }
 
             const formData = new FormData();
+            // Always send both keyword and profile fields to the webhook
             formData.append('keyword', keyword);
             formData.append('profile', profile);
             formData.append('count', count);
@@ -440,6 +415,7 @@
             submitButton.disabled = false;
             buttonText.textContent = 'Launch Workflow';
             
+            // Reset to the default search type (keyword)
             document.querySelector('input[name="searchType"][value="keyword"]').checked = true;
             toggleSearchType();
         });
@@ -456,23 +432,6 @@
             }
         });
 
-        // Auto-logout on page visibility change (security measure)
-        document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible' && !loginView.classList.contains('hidden')) {
-                const hasValidSession = await validateSession();
-                if (!hasValidSession && getCookie(COOKIE_NAME)) {
-                    deleteCookie(COOKIE_NAME);
-                    formView.classList.add('hidden');
-                    loginView.classList.remove('hidden');
-                }
-            }
-        });
-
-        // Clear sensitive data on page unload
-        window.addEventListener('beforeunload', () => {
-            passwordInput.value = '';
-        });
-
         // --- INTERACTIVE STARS BACKGROUND SCRIPT ---
         const canvas = document.getElementById('stars-canvas');
         const ctx = canvas.getContext('2d');
@@ -482,7 +441,7 @@
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            initStars();
+            initStars(); // Re-initialize stars on resize to fit new dimensions
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
@@ -515,19 +474,23 @@
             }
 
             update() {
+                // Mouse interaction
                 if (mouse.x !== null && mouse.y !== null) {
                     let dx = mouse.x - this.x;
                     let dy = mouse.y - this.y;
                     let distance = Math.sqrt(dx * dx + dy * dy);
                     if (distance < 100) {
+                        // Push star away from cursor
                         this.x -= dx / 20;
                         this.y -= dy / 20;
                     }
                 }
 
+                // Movement
                 this.x += this.vx;
                 this.y += this.vy;
 
+                // Wall collision
                 if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
                 if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
 
